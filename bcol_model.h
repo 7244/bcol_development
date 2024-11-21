@@ -27,15 +27,11 @@ struct bcol_model_t {
     
     totald += d * 150;
     fms.dt = totald;
-    //fms.calculate_default_pose();
-    //fms.fk_get_pose(totald);
 
-    //auto fk_animation_transform = fms.calculate_transformations();
-    //hardcode
-    //static constexpr int mesh_id = 0;
-    //for (uintptr_t i = 0; i < fms.parsed_model.model_data.mesh_data.size(); i++) {
-      //fms.calculate_modified_vertices(i, fk_animation_transform);
-    //}
+    fms.calculate_default_pose();
+    //fms.calculate_poses();
+    //fms.fk_get_pose(totald);
+    auto fk_animation_transform = fms.calculate_transformations();
 
     struct triangle_list_t {
       //uint32_t matid; todo
@@ -44,6 +40,8 @@ struct bcol_model_t {
 
     std::vector<triangle_list_t> triangles;
     for (uintptr_t i = 0; i < fms.parsed_model.model_data.mesh_data.size(); i++) {
+      fms.calculate_modified_vertices(i, fk_animation_transform);
+
       triangle_list_t tl;
       //tl.matid = fms.get_material_id(i);
       fms.get_triangle_vec(i, &tl.triangle_vec);
