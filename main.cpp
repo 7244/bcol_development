@@ -141,44 +141,46 @@ BCOL_t& g_bcol = *_g_bcol;
   }
 #endif
 
-fan::vec2ui image_size(64);
-std::vector<uint8_t> image_data = fan::io::file::read<uint8_t>("image");
-
 #include "bcol_model.h"
 
-fan::vec3 get_rgb_of_image(fan::vec2 tc) {
-  fan::vec3 r;
-  fan::vec2ui c;
-  c.y = tc.y * image_size.y;
-  c.x = tc.x * image_size.x;
-  if (c.y >= image_size.y) { c.y = image_size.y - 1; }
-  if (c.x >= image_size.x) { c.x = image_size.x - 1; }
-  r.x = f32_t(image_data[(c.y * image_size.x + c.x) * 3 + 0]) / 0xff;
-  r.y = f32_t(image_data[(c.y * image_size.x + c.x) * 3 + 1]) / 0xff;
-  r.z = f32_t(image_data[(c.y * image_size.x + c.x) * 3 + 2]) / 0xff;
-  return r;
-}
+enum class model_image_type : uint8_t{
+  rgb,
+  rgba
+};
 
 struct image_t {
+  model_image_type type;
   uint8_t* data;
   fan::vec2ui size;
 };
 
 image_t model_image[999];
 
-fan::vec4 get_rgba_of_image(uint32_t ti, fan::vec2 tc) {
+fan::vec4 get_color_from_image(uint32_t ti, fan::vec2 tc){
   fan::vec4 r;
 
-  fan::vec2ui c;
-  c.x = tc.x * model_image[ti].size.x;
-  c.y = tc.y * model_image[ti].size.y;
-  c.x %= model_image[ti].size.x;
-  c.y %= model_image[ti].size.y;
+  auto &image = model_image[ti];
 
-  r[0] = f32_t(model_image[ti].data[(c.y * model_image[ti].size.x + c.x) * 4 + 0]) / 0xff;
-  r[1] = f32_t(model_image[ti].data[(c.y * model_image[ti].size.x + c.x) * 4 + 1]) / 0xff;
-  r[2] = f32_t(model_image[ti].data[(c.y * model_image[ti].size.x + c.x) * 4 + 2]) / 0xff;
-  r[3] = f32_t(model_image[ti].data[(c.y * model_image[ti].size.x + c.x) * 4 + 3]) / 0xff;
+  uint32_t cx = tc.x * image.size.x;
+  uint32_t cy = tc.y * image.size.y;
+  cx %= image.size.x;
+  cy %= image.size.y;
+
+  if(image.type == model_image_type::rgb){
+    r[0] = f32_t(image.data[(cy * image.size.x + cx) * 3 + 0]) / 0xff;
+    r[1] = f32_t(image.data[(cy * image.size.x + cx) * 3 + 1]) / 0xff;
+    r[2] = f32_t(image.data[(cy * image.size.x + cx) * 3 + 2]) / 0xff;
+    r[3] = 1;
+  }
+  else if(image.type == model_image_type::rgba){
+    r[0] = f32_t(image.data[(cy * image.size.x + cx) * 4 + 0]) / 0xff;
+    r[1] = f32_t(image.data[(cy * image.size.x + cx) * 4 + 1]) / 0xff;
+    r[2] = f32_t(image.data[(cy * image.size.x + cx) * 4 + 2]) / 0xff;
+    r[3] = f32_t(image.data[(cy * image.size.x + cx) * 4 + 3]) / 0xff;
+  }
+  else{
+    __abort();
+  }
 
   return r;
 }
@@ -227,7 +229,10 @@ VisualSolve_Grid_Fragment(
 ) {
   BCOL_t::VisualSolve_t ret;
 
-  fan::vec3 rgb = get_rgb_of_image(tc);
+  __abort(); /* make stuff right */
+  fan::vec3 rgb = 0;
+  #if 0
+  fan::vec3 rgb = get_color_from_image(0, tc);
 
   f32_t m = fmod(at.length(), 30) / 30;
   if (m < 0.5) {
@@ -241,6 +246,7 @@ VisualSolve_Grid_Fragment(
   ret.rgb = rgb;
   ret.transparency = 0;
   ret.reflect = 0;
+  #endif
 
   return ret;
 }
@@ -321,7 +327,7 @@ VisualSolve_Shape_Fragment_DPF(
   ret.normal = reflect((at - src).normalize(), n);
   ret.multipler = 0.75;
 
-  fan::vec4 color = get_rgba_of_image(MaterialIndex, barycentric);
+  fan::vec4 color = get_color_from_image(MaterialIndex, barycentric);
   //fan::vec4 color = fan::vec4(fan::vec2(barycentric.x, barycentric.y), fan::vec2(1.0 - barycentric.x - barycentric.y, 1));
   ret.rgb = fan::vec3(color.x, color.y, color.z);
   //ret.rgb = fan::vec3(BCOL_t::abs(barycentric[0]), BCOL_t::abs(barycentric[1]), BCOL_t::abs(n[1]));
@@ -732,6 +738,15 @@ int main() {
     for(auto & t : fan_3d::model::cached_texture_data){
       model_image[i].data = t.second.data.data();
       model_image[i].size = t.second.size;
+      if(t.second.channels == 3){
+        model_image[i].type = model_image_type::rgb;
+      }
+      else if(t.second.channels == 4){
+        model_image[i].type = model_image_type::rgba;
+      }
+      else{
+        __abort();
+      }
       i++;
     }
   }
