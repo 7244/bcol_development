@@ -54,6 +54,7 @@
 #include <WITCH/T/T.h>
 
 #include <fan/pch.h>
+#include <fan/graphics/opengl/3D/objects/model.h>
 
 void print(const char* format, ...) {
   IO_fd_t fd_stdout;
@@ -141,6 +142,11 @@ BCOL_t& g_bcol = *_g_bcol;
   }
 #endif
 
+struct model_material_t {
+  uint32_t diffuse_id;
+};
+std::vector<model_material_t> model_material;
+
 #include "bcol_model.h"
 
 enum class model_image_type : uint8_t{
@@ -155,6 +161,7 @@ struct image_t {
 };
 
 image_t model_image[999];
+
 
 fan::vec4 get_color_from_image(uint32_t ti, fan::vec2 tc){
   fan::vec4 r;
@@ -327,7 +334,7 @@ VisualSolve_Shape_Fragment_DPF(
   ret.normal = reflect((at - src).normalize(), n);
   ret.multipler = 0.75;
 
-  fan::vec4 color = get_color_from_image(MaterialIndex, barycentric);
+  fan::vec4 color = get_color_from_image(model_material[MaterialIndex].diffuse_id, barycentric);
   //fan::vec4 color = fan::vec4(fan::vec2(barycentric.x, barycentric.y), fan::vec2(1.0 - barycentric.x - barycentric.y, 1));
   ret.rgb = fan::vec3(color.x, color.y, color.z);
   //ret.rgb = fan::vec3(BCOL_t::abs(barycentric[0]), BCOL_t::abs(barycentric[1]), BCOL_t::abs(n[1]));
@@ -730,8 +737,12 @@ int main() {
       };
   }
 
-  bcol_model_t bcol_model("models/provence.fbx");
+  bcol_model_t bcol_model("player.gltf");
   bcol_model.open();
+  auto found = bcol_model.fms.animation_list.find("Idle");
+  if (found != bcol_model.fms.animation_list.end()) {
+    found->second.weight = 1.0;
+  }
 
   {
     uint32_t i = 0;
@@ -751,12 +762,19 @@ int main() {
     }
   }
 
-  bcol_model.fms.m_transform = fan::mat4(1);
   //bcol_model.fms.m_transform = bcol_model.fms.m_transform.scale(1);
 
   //bcol_model.fms.m_transform = bcol_model.fms.m_transform.rotate(fan::math::radians(180.f), fan::vec3(0, 1, 0));
   //
   {
+    // auto anid = fms.create_an("an_name", weight, duration);
+    //auto animation_node_id = fms.fk_set_rot(anid, "Left_leg", 0.001/* time in seconds */,
+    //  fan::vec3(1, 0, 0), 0
+    //);
+    //auto animation_node_id3 = fms.fk_set_rot(anid, "Left_leg", 1/* time in seconds */,
+    //  fan::vec3(1, 1, 0), fan::math::pi
+    //);
+
     //auto anid = bcol_model.fms.create_an("an_name", 0.5);
     ////auto anid2 = bcol_model.fms.create_an("an_name2", 0.5);
 
@@ -812,6 +830,7 @@ int main() {
     loco_t::shape_t id = p;
 
     loco.set_vsync(false);
+    loco.console.commands.call("show_fps 1");
   #endif
 
   uint64_t RayCount = 0;
@@ -820,12 +839,20 @@ int main() {
   fan::vec3 model_rotation = fan::vec3(0, 0, fan::math::pi);
   fan::vec3 model_scale = 1;
 
+
+  uint64_t frame = 0;
+
   #if set_DisplayWindow == 1
     loco.loop([&]
   #else
     while (1)
   #endif
   {
+      if (frame == 1) {
+        loco.console.commands.call("set_target_fps 0");
+        
+      }
+      frame++;
     #if set_DisplayWindow == 0
       if (FrameCount >= set_RenderFrameCount) {
         return 0;
@@ -839,9 +866,9 @@ int main() {
 
       ImGui::Begin("window");
 
-      bcol_model.fms.m_transform = fan::mat4(1).translate(model_position);
+   /*   bcol_model.fms.m_transform = fan::mat4(1).translate(model_position);
       bcol_model.fms.m_transform = bcol_model.fms.m_transform.rotate(model_rotation);
-      bcol_model.fms.m_transform = bcol_model.fms.m_transform.scale(model_scale);
+      bcol_model.fms.m_transform = bcol_model.fms.m_transform.scale(model_scale);*/
 
       ImGui::DragFloat3("translate", model_position.data(), 0.1);
       ImGui::DragFloat3("rotate", model_rotation.data(), 0.01);

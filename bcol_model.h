@@ -4,6 +4,21 @@ struct bcol_model_t {
 
   bcol_model_t() = default;
   bcol_model_t(const char* name) : fms({ .path = name }) {
+    f32_t weight = 1; // all animations weight need to sum to 1
+    f32_t duration = 1.f;
+
+    for (const fan_3d::model::mesh_t& mesh : fms.meshes) {
+      model_material_t material;
+      auto& ci = fan_3d::model::cached_texture_data;
+      auto found = ci.find(mesh.texture_names[aiTextureType_DIFFUSE]);
+      if (found == ci.end()) {
+        material.diffuse_id = 0;
+      }
+      else {
+        material.diffuse_id = std::distance(ci.begin(), found);
+      }
+      model_material.push_back(material);
+    }
 
   }
   void open() {
@@ -25,51 +40,32 @@ struct bcol_model_t {
     g_bcol.ClearObject(oid);
     static f32_t totald = 0;
     
-    totald += d * 150;
+    totald += d * 1000;
     fms.dt = totald;
 
-    fms.calculate_default_pose();
-    //fms.calculate_poses();
-    //fms.fk_get_pose(totald);
-    auto fk_animation_transform = fms.calculate_transformations();
+    fms.fk_calculate_poses();
+    std::vector<fan::mat4> fk_transformations = fms.bone_transforms;
+    fms.fk_interpolate_animations(fk_transformations, *fms.root_bone, fms.m_transform);
+    fms.print_bones(fms.root_bone);
+    for (uintptr_t i = 0; i < fms.meshes.size(); i++) {
+      BCOL_t::ShapeProperties_DPF_t sp;
+      sp.u.MaterialIndex = i;
 
-    struct triangle_list_t {
-      //uint32_t matid; todo
-      std::vector<fan_3d::model::fms_t::one_triangle_t> triangle_vec;
-    };
-
-    std::vector<triangle_list_t> triangles;
-    for (uintptr_t i = 0; i < fms.parsed_model.model_data.mesh_data.size(); i++) {
-      fms.calculate_modified_vertices(i, fk_animation_transform);
-
-      triangle_list_t tl;
-      //tl.matid = fms.get_material_id(i);
-      fms.get_triangle_vec(i, &tl.triangle_vec);
-
-      triangles.push_back(tl);
-    }
-    for (uintptr_t i = 0; i < triangles.size(); i++) {
-      auto& tl = triangles[i];
-      for (uintptr_t ti = 0; ti < tl.triangle_vec.size(); ti++) {
-        auto& t = tl.triangle_vec[ti];
-        BCOL_t::ShapeProperties_DPF_t sp;
+      // this gets optimized
+      const auto& triangles = fms.get_triangles(i);
+      for (uintptr_t ti = 0; ti < triangles.size(); ti++) {
+        auto& t = triangles[ti];
         sp.u.bcol_model = this;
-        auto found = fan_3d::model::cached_texture_data.find(fms.parsed_model.model_data.mesh_data[i].names[aiTextureType_DIFFUSE]);
-        if (found == fan_3d::model::cached_texture_data.end()) {
-          sp.u.MaterialIndex = 0;
-        }
-        else {
-          sp.u.MaterialIndex = std::distance(
-            fan_3d::model::cached_texture_data.begin(),
-            found
-          ); // TODO
-        }
 
         sp.u.color = fan::vec4(1); // TODO
         for (uint8_t pi = 0; pi < 3; pi++) {
-          auto v = fms.m_transform * fan::vec4(t.p[pi], 1);
-          sp.p[pi] = *(fan::vec3*)&v;
-          sp.u.uv[pi] = t.tc[pi];
+          fan::vec4 interpolated_bone_transform = 
+            fms.calculate_bone_transform(fk_transformations, i, t.vertex_indices[pi]);
+          fan::vec4 vertex_position = fan::vec4(t.position[pi], 1.0);
+          fan::mat4 model = fan::mat4(1).scale(0.1);
+          fan::vec4 result = model * interpolated_bone_transform;
+          sp.p[pi] = *(fan::vec3*)&result;
+          sp.u.uv[pi] = t.uv[pi];
         }
         g_bcol.NewShape_DPF(oid, &sp);
       }
