@@ -1,11 +1,13 @@
 struct bcol_model_t : fan_3d::model::fms_t{
   BCOL_t::ObjectID_t oid;
 
+  /*for gui*/
+  fan::vec3 model_position = 0;
+  fan::vec3 model_rotation = fan::vec3(0, 0, 0);
+  fan::vec3 model_scale = 0.1;
+
   bcol_model_t() = default;
   bcol_model_t(const char* name) : fms_t({ .path = name, .use_cpu = 1 }) {
-    f32_t weight = 1; // all animations weight need to sum to 1
-    f32_t duration = 1.f;
-
     for (const fan_3d::model::mesh_t& mesh : meshes) {
       model_material_t material;
       auto& ci = fan_3d::model::cached_texture_data;
@@ -36,6 +38,11 @@ struct bcol_model_t : fan_3d::model::fms_t{
   }
 
   void delta(f32_t d) {
+    ImGui::Begin("window");
+    ImGui::DragFloat3("translate", model_position.data(), 0.1);
+    ImGui::DragFloat3("rotate", model_rotation.data(), 0.01);
+    ImGui::DragFloat3("scale", model_scale.data(), 0.01);
+
     g_bcol.ClearObject(oid);
     static f32_t totald = 0;
     
@@ -45,7 +52,14 @@ struct bcol_model_t : fan_3d::model::fms_t{
     fk_calculate_poses();
     std::vector<fan::mat4> fk_transformations = bone_transforms;
     fk_interpolate_animations(fk_transformations, *root_bone, m_transform);
+
     mouse_modify_joint();
+
+    fan::mat4 model_transform{1};
+    model_transform = model_transform.translate(model_position);
+    model_transform = model_transform.rotate(model_rotation);
+    model_transform = model_transform.scale(model_scale);
+
     for (uintptr_t i = 0; i < meshes.size(); i++) {
       BCOL_t::ShapeProperties_DPF_t sp;
       sp.u.MaterialIndex = i;
@@ -61,13 +75,13 @@ struct bcol_model_t : fan_3d::model::fms_t{
           fan::vec4 interpolated_bone_transform = 
             calculate_bone_transform(fk_transformations, i, t.vertex_indices[pi]);
           fan::vec4 vertex_position = fan::vec4(t.position[pi], 1.0);
-          fan::mat4 model = fan::mat4(1).scale(0.1);
-          fan::vec4 result = model * interpolated_bone_transform;
+          fan::vec4 result = model_transform * interpolated_bone_transform;
           sp.p[pi] = *(fan::vec3*)&result;
           sp.u.uv[pi] = t.uv[pi];
         }
         g_bcol.NewShape_DPF(oid, &sp);
       }
     }
+    ImGui::End();
   }
 };

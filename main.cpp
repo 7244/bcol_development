@@ -834,12 +834,6 @@ int main() {
   #endif
 
   uint64_t RayCount = 0;
-
-  fan::vec3 model_position = 0;
-  fan::vec3 model_rotation = fan::vec3(0, 0, fan::math::pi);
-  fan::vec3 model_scale = 1;
-
-
   uint64_t frame = 0;
 
   #if set_DisplayWindow == 1
@@ -863,18 +857,6 @@ int main() {
       if (!image.iic()) {
         loco.image_unload(image);
       }
-
-      ImGui::Begin("window");
-
-   /*   bcol_model.fms.m_transform = fan::mat4(1).translate(model_position);
-      bcol_model.fms.m_transform = bcol_model.fms.m_transform.rotate(model_rotation);
-      bcol_model.fms.m_transform = bcol_model.fms.m_transform.scale(model_scale);*/
-
-      ImGui::DragFloat3("translate", model_position.data(), 0.1);
-      ImGui::DragFloat3("rotate", model_rotation.data(), 0.01);
-      ImGui::DragFloat3("scale", model_scale.data(), 0.01);
-
-      ImGui::End();
     #endif
 
     #if set_VisualDebug == 1
