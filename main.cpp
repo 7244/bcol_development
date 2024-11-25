@@ -739,8 +739,8 @@ int main() {
 
   bcol_model_t bcol_model("player.gltf");
   bcol_model.open();
-  auto found = bcol_model.fms.animation_list.find("Idle");
-  if (found != bcol_model.fms.animation_list.end()) {
+  auto found = bcol_model.animation_list.find("Idle");
+  if (found != bcol_model.animation_list.end()) {
     found->second.weight = 1.0;
   }
 
