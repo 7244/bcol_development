@@ -737,31 +737,6 @@ int main() {
       };
   }
 
-  bcol_model_t bcol_model("player.gltf");
-  bcol_model.open();
-  auto found = bcol_model.animation_list.find("Idle");
-  if (found != bcol_model.animation_list.end()) {
-    found->second.weight = 1.0;
-  }
-
-  {
-    uint32_t i = 0;
-    for(auto & t : fan_3d::model::cached_texture_data){
-      model_image[i].data = t.second.data.data();
-      model_image[i].size = t.second.size;
-      if(t.second.channels == 3){
-        model_image[i].type = model_image_type::rgb;
-      }
-      else if(t.second.channels == 4){
-        model_image[i].type = model_image_type::rgba;
-      }
-      else{
-        __abort();
-      }
-      i++;
-    }
-  }
-
   //bcol_model.fms.m_transform = bcol_model.fms.m_transform.scale(1);
 
   //bcol_model.fms.m_transform = bcol_model.fms.m_transform.rotate(fan::math::radians(180.f), fan::vec3(0, 1, 0));
@@ -832,6 +807,32 @@ int main() {
     loco.set_vsync(false);
     loco.console.commands.call("show_fps 1");
   #endif
+
+  // initialize bcol mode after loco
+  bcol_model_t bcol_model("player.gltf");
+  bcol_model.open();
+  auto found = bcol_model.animation_list.find("Idle");
+  if (found != bcol_model.animation_list.end()) {
+    found->second.weight = 1.0;
+  }
+
+  {
+    uint32_t i = 0;
+    for(auto & t : fan_3d::model::cached_texture_data){
+      model_image[i].data = t.second.data.data();
+      model_image[i].size = t.second.size;
+      if(t.second.channels == 3){
+        model_image[i].type = model_image_type::rgb;
+      }
+      else if(t.second.channels == 4){
+        model_image[i].type = model_image_type::rgba;
+      }
+      else{
+        __abort();
+      }
+      i++;
+    }
+  }
 
   uint64_t RayCount = 0;
   uint64_t frame = 0;
