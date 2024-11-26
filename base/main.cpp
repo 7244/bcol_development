@@ -868,7 +868,7 @@ int main() {
       DebugBallList.clear();
     #endif
 
-    bcol_model.delta(0.01);
+    bcol_model.delta(loco.delta_time);
     g_bcol.Step(0.01);
     g_bcol.BakeCurrentForVisualSolve();
 
