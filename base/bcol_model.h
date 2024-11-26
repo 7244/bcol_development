@@ -60,24 +60,16 @@ struct bcol_model_t : fan_3d::model::fms_t{
     model_transform = model_transform.rotate(model_rotation);
     model_transform = model_transform.scale(model_scale);
 
-    for (uintptr_t i = 0; i < meshes.size(); i++) {
+    for (uint32_t i = 0; i < meshes.size(); ++i) {
       BCOL_t::ShapeProperties_DPF_t sp;
       sp.u.MaterialIndex = i;
-
-      // this gets optimized
-      const auto& triangles = get_triangles(i);
-      for (uintptr_t ti = 0; ti < triangles.size(); ti++) {
-        auto& t = triangles[ti];
-        sp.u.bcol_model = this;
-
-        sp.u.color = fan::vec4(1); // TODO
+      sp.u.bcol_model = this;
+      calculate_vertices(fk_transformations, i, fan::mat4(1));
+      for (int j = 0; j < meshes[i].vertices.size(); j += 3) {
         for (uint8_t pi = 0; pi < 3; pi++) {
-          fan::vec4 interpolated_bone_transform = 
-            calculate_bone_transform(fk_transformations, i, t.vertex_indices[pi]);
-          fan::vec4 vertex_position = fan::vec4(t.position[pi], 1.0);
-          fan::vec4 result = model_transform * interpolated_bone_transform;
-          sp.p[pi] = *(fan::vec3*)&result;
-          sp.u.uv[pi] = t.uv[pi];
+          fan::vec4 v(model_transform * fan::vec4(calculated_meshes[i].vertices[j + pi].position, 1.0));
+          sp.p[pi] = *(fan::vec3*)&v;
+          sp.u.uv[pi] = calculated_meshes[i].vertices[j + pi].uv;
         }
         g_bcol.NewShape_DPF(oid, &sp);
       }
