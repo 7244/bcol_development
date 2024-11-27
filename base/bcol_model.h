@@ -61,22 +61,22 @@ struct bcol_model_t : fan_3d::model::fms_t{
     model_transform = model_transform.scale(model_scale);
 
     for (uint32_t i = 0; i < meshes.size(); ++i) {
-   BCOL_t::ShapeProperties_DPF_t sp;
-   sp.u.MaterialIndex = i;
-   sp.u.bcol_model = this;
-   calculate_vertices(fk_transformations, i, fan::mat4(1));
-   
-   for (size_t j = 0; j < meshes[i].indices.size(); j += 3) {
-     for (uint8_t pi = 0; pi < 3; pi++) {
-       uint32_t vertex_index = meshes[i].indices[j + pi];
-       fan::vec4 v(model_transform * fan::vec4(calculated_meshes[i].vertices[vertex_index].position, 1.0));
-       
-       sp.p[pi] = *(fan::vec3*)&v;
-       sp.u.uv[pi] = calculated_meshes[i].vertices[vertex_index].uv;
-     }
-     g_bcol.NewShape_DPF(oid, &sp);
-   }
- }
+      BCOL_t::ShapeProperties_DPF_t sp;
+      sp.u.MaterialIndex = i;
+      sp.u.bcol_model = this;
+      calculate_vertices(fk_transformations, i, fan::mat4(1));
+
+      for (size_t j = 0; j < meshes[i].indices.size(); j += 3) {
+        for (uint8_t pi = 0; pi < 3; pi++) {
+          uint32_t vertex_index = meshes[i].indices[j + pi];
+          fan::vec4 v(model_transform * fan::vec4(calculated_meshes[i].vertices[vertex_index].position, 1.0));
+
+          sp.p[pi] = *(fan::vec3*)&v;
+          sp.u.uv[pi] = calculated_meshes[i].vertices[vertex_index].uv;
+        }
+        g_bcol.NewShape_DPF(oid, &sp);
+      }
+    }
     ImGui::End();
   }
 };
