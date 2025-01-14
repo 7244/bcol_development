@@ -105,7 +105,7 @@ struct bcol_model_t;
   BCOL_t::_3f color; \
   BCOL_t::_f transparency;
 #define BCOL_set_DynamicDeltaFunction \
-  ObjectData0->Velocity.y = -1;
+  ObjectData0->Velocity[1] = -1;
 #if set_bcol_UseEmbree
   #define BCOL_set_UseEmbree 1
 #endif
@@ -127,13 +127,13 @@ BCOL_t& g_bcol = *_g_bcol;
 
 #if set_VisualDebug == 1
   std::vector<BCOL_t::ObjectID_t> DebugBallList;
-  void DebugBall(fan::vec3 pos) {
+  void DebugBall(BCOL_t::_vf pos) {
     BCOL_t::ObjectProperties_t p;
     p.Position = pos;
     BCOL_t::ObjectID_t oid = g_bcol.NewObject(&p, BCOL_t::ObjectFlag::Constant);
     DebugBallList.push_back(oid);
     g_bcol.SetObject_Velocity(oid, BCOL_t::_vf(0, 0, 0));
-    g_bcol.GetObjectExtraData(oid)->color = fan::vec3(0, 1, 0);
+    g_bcol.GetObjectExtraData(oid)->color = BCOL_t::_3f(0, 1, 0);
     g_bcol.GetObjectExtraData(oid)->transparency = 0;
     BCOL_t::ShapeProperties_Circle_t sp;
     sp.Position = 0;
@@ -204,27 +204,19 @@ fan::vec2 CalculateBarycentric(
   return fan::vec2(u, v);
 }
 
-
-fan::vec3 reflect(const BCOL_t::_vf& incident, const BCOL_t::_vf& normal) {
-  double dot_product = incident.dot(normal);
-  fan::vec3 scaled_normal = normal * (2 * dot_product);
-  fan::vec3 reflection = incident - scaled_normal;
-  return reflection;
-}
-
 #if set_HaveGrid == 1
-void PreSolve_Grid_cb(
-  BCOL_t* bcol,
-  const BCOL_t::ShapeInfoPack_t* sip,
-  BCOL_t::_vsi32 gi,
-  BCOL_t::Contact_Grid_t* c
-) {
-  if (IsGridSolid(gi)) {
-    bcol->Contact_Grid_EnableContact(c);
-    return;
+  void PreSolve_Grid_cb(
+    BCOL_t* bcol,
+    const BCOL_t::ShapeInfoPack_t* sip,
+    BCOL_t::_vsi32 gi,
+    BCOL_t::Contact_Grid_t* c
+  ) {
+    if (IsGridSolid(gi)) {
+      bcol->Contact_Grid_EnableContact(c);
+      return;
+    }
+    bcol->Contact_Grid_DisableContact(c);
   }
-  bcol->Contact_Grid_DisableContact(c);
-}
 #endif
 
 BCOL_t::VisualSolve_t
@@ -248,7 +240,7 @@ VisualSolve_Grid_Fragment(
   rgb *= m * m;
 
   ret.at = at;
-  ret.normal = reflect((at - src).normalize(), n);
+  ret.normal = (at - src).normalize().reflect(n);
   ret.multipler = 0;
   ret.rgb = rgb;
   ret.transparency = 0;
@@ -293,7 +285,7 @@ VisualSolve_Shape_Fragment_Circle(
   BCOL_t::VisualSolve_t ret;
 
   ret.at = at;
-  ret.normal = reflect((at - src).normalize(), n);
+  ret.normal = (at - src).normalize().reflect(n);
   ret.multipler = 0.5;
   ret.rgb = c * 0.5;
   ret.transparency = 0;
@@ -311,9 +303,9 @@ VisualSolve_Shape_Fragment_Rectangle(
   BCOL_t::VisualSolve_t ret;
 
   ret.at = at;
-  ret.normal = reflect((at - src).normalize(), n);
+  ret.normal = (at - src).normalize().reflect(n);
   ret.multipler = 0.5;
-  ret.rgb = fan::vec3(0.5, 0.5, 0);
+  ret.rgb = BCOL_t::_3f(0.5, 0.5, 0);
   ret.transparency = 0;
   ret.reflect = 0.5;
 
@@ -331,12 +323,12 @@ VisualSolve_Shape_Fragment_DPF(
   BCOL_t::VisualSolve_t ret;
 
   ret.at = at;
-  ret.normal = reflect((at - src).normalize(), n);
+  ret.normal = (at - src).normalize().reflect(n);
   ret.multipler = 0.75;
 
   fan::vec4 color = get_color_from_image(model_material[MaterialIndex].diffuse_id, barycentric);
   //fan::vec4 color = fan::vec4(fan::vec2(barycentric.x, barycentric.y), fan::vec2(1.0 - barycentric.x - barycentric.y, 1));
-  ret.rgb = fan::vec3(color.x, color.y, color.z);
+  ret.rgb = BCOL_t::_3f(color.x, color.y, color.z);
   //ret.rgb = fan::vec3(BCOL_t::abs(barycentric[0]), BCOL_t::abs(barycentric[1]), BCOL_t::abs(n[1]));
   //ret.rgb = fan::vec3(1, 0, 1);
   ret.transparency = 0;
@@ -387,16 +379,6 @@ void VisualSolve_Shape_cb(
   }
 }
 
-fan::vec3 rotateVector(fan::vec3 v, fan::vec2 angles) {
-  f32_t y1 = v.y * std::cos(angles.x) - v.z * std::sin(angles.x);
-  f32_t z1 = v.y * std::sin(angles.x) + v.z * std::cos(angles.x);
-
-  f32_t x2 = v.x * std::cos(angles.y) + z1 * std::sin(angles.y);
-  f32_t z2 = -v.x * std::sin(angles.y) + z1 * std::cos(angles.y);
-
-  return fan::vec3(x2, y1, z2);
-}
-
 static constexpr f32_t FOV = 90.0f;
 
 // update projection to perspective in window resize
@@ -419,7 +401,7 @@ fan::camera init_camera() {
 
 fan::camera camera = init_camera();
 
-fan::vec3 direction_vector(uint32_t xi, uint32_t yi) {
+BCOL_t::_vf direction_vector(uint32_t xi, uint32_t yi) {
 
   f32_t ndcX = (2.0f * xi) / RenderSize.x - 1.0f;
   f32_t ndcY = 1.0f - (2.0f * yi) / RenderSize.y;
@@ -427,7 +409,7 @@ fan::vec3 direction_vector(uint32_t xi, uint32_t yi) {
   fan::vec4 clipCoords = { ndcX, ndcY, -1.0f, 1.0f };
   fan::vec4 eyeCoords = view_projection.inverse() * clipCoords;
 
-  fan::vec3 direction = fan::vec3(eyeCoords.x, eyeCoords.y, eyeCoords.z).normalize();
+  BCOL_t::_vf direction = BCOL_t::_vf(eyeCoords.x, eyeCoords.y, eyeCoords.z).normalize();
 
   return direction;
 }
@@ -444,9 +426,9 @@ void ProcessSingleRay(uint8_t* Pixels, BCOL_t::_f RayPower, BCOL_t::_vf pos, BCO
   vs.rgb *= RayPower;
   vs.rgb *= BCOL_t::_f(1) - (vs.reflect + vs.transparency) * vs.multipler;
 
-  Pixels[0] += (uint32_t)(vs.rgb.x * 0xff);
-  Pixels[1] += (uint32_t)(vs.rgb.y * 0xff);
-  Pixels[2] += (uint32_t)(vs.rgb.z * 0xff);
+  Pixels[0] += (uint32_t)(vs.rgb[0] * 0xff);
+  Pixels[1] += (uint32_t)(vs.rgb[1] * 0xff);
+  Pixels[2] += (uint32_t)(vs.rgb[2] * 0xff);
 
   RayPower *= vs.multipler;
 
@@ -485,24 +467,23 @@ BCOL_t::ObjectID_t focused_oid;
 void IterateRaysSingle(uint32_t x0, uint32_t x1, uint32_t y0, uint32_t y1, uint64_t* RayCount) {
   for (uint32_t y = y0; y < y1; y++) {
     for (uint32_t x = x0; x < x1; x++) {
-      #if set_DisplayWindow == 0
-        auto pos = BCOL_t::_vf(0, -125, 0);
-        pos.x += std::sin(total_delta / 3) * 56;
-        pos.z += std::cos(total_delta / 3) * 56;
 
-        BCOL_t::_vf lookto = pos - g_bcol.GetObject_Position(focused_oid);
-        lookto = lookto.square_normalize();
-        fan::vec2 angle;
-        angle.y = atan2(lookto.x, lookto.z);
-        angle.x = -asin(lookto.y);
-      #endif
-      fan::vec3 angle3 = direction_vector(x, y);
+      BCOL_t::_vf angle = direction_vector(x, y);
 
       FrameData[(y * RenderSize.x + x) * 3 + 0] = 0;
       FrameData[(y * RenderSize.x + x) * 3 + 1] = 0;
       FrameData[(y * RenderSize.x + x) * 3 + 2] = 0;
 
-      ProcessSingleRay(&FrameData[(y * RenderSize.x + x) * 3], 1, camera.position, angle3, RayCount);
+      ProcessSingleRay(
+        &FrameData[(y * RenderSize.x + x) * 3],
+        1,
+
+        /* TOOD camera.position type differs with BCOL_t::_vf for no reason */
+        BCOL_t::_vf(camera.position[0], camera.position[1], camera.position[2]),
+
+        angle,
+        RayCount
+      );
     }
   }
 }
@@ -543,9 +524,9 @@ void IterateRaysMulti_Execute(IterateRaysMulti_RayList_t& RayList) {
     vs.rgb *= RayList.RayPower[i];
     vs.rgb *= BCOL_t::_f(1) - (vs.reflect + vs.transparency) * vs.multipler;
 
-    RayList.Pixels[i][0] += (uint32_t)(vs.rgb.x * 0xff);
-    RayList.Pixels[i][1] += (uint32_t)(vs.rgb.y * 0xff);
-    RayList.Pixels[i][2] += (uint32_t)(vs.rgb.z * 0xff);
+    RayList.Pixels[i][0] += (uint32_t)(vs.rgb[0] * 0xff);
+    RayList.Pixels[i][1] += (uint32_t)(vs.rgb[1] * 0xff);
+    RayList.Pixels[i][2] += (uint32_t)(vs.rgb[2] * 0xff);
 
     RayList.RayPower[i] *= vs.multipler;
 
@@ -562,25 +543,22 @@ void IterateRaysMulti(uint32_t x0, uint32_t x1, uint32_t y0, uint32_t y1, uint64
 
   for (uint32_t y = y0; y < y1; y++) {
     for (uint32_t x = x0; x < x1; x++) {
-      BCOL_t::_vf pos = camera.position;
-      #if set_DisplayWindow == 0
-        pos = BCOL_t::_vf(0, -125, 0);
-        pos.x += std::sin(total_delta / 3) * 56;
-        pos.z += std::cos(total_delta / 3) * 56;
 
-        BCOL_t::_vf lookto = pos - g_bcol.GetObject_Position(focused_oid);
-        lookto = lookto.square_normalize();
-        fan::vec2 angle;
-        angle.y = atan2(lookto.x, lookto.z);
-        angle.x = -asin(lookto.y);
-      #endif
-      fan::vec3 angle3 = direction_vector(x, y);
+      BCOL_t::_vf angle = direction_vector(x, y);
 
       FrameData[(y * RenderSize.x + x) * 3 + 0] = 0;
       FrameData[(y * RenderSize.x + x) * 3 + 1] = 0;
       FrameData[(y * RenderSize.x + x) * 3 + 2] = 0;
 
-      RayList.add(&FrameData[(y * RenderSize.x + x) * 3], 1, pos, angle3);
+      RayList.add(
+        &FrameData[(y * RenderSize.x + x) * 3],
+        1,
+
+        /* TOOD camera.position type differs with BCOL_t::_vf for no reason */
+        BCOL_t::_vf(camera.position[0], camera.position[1], camera.position[2]),
+
+        angle
+      );
 
       while (RayList.current >= needed) {
         IterateRaysMulti_Execute(RayList);
@@ -809,7 +787,7 @@ int main() {
   #endif
 
   // initialize bcol mode after loco
-  bcol_model_t bcol_model("player.gltf");
+  bcol_model_t bcol_model("models/player.gltf");
   bcol_model.open();
   auto found = bcol_model.animation_list.find("Idle");
   if (found != bcol_model.animation_list.end()) {

@@ -44,8 +44,8 @@ struct bcol_model_t : fan_3d::model::fms_t{
     ImGui::DragFloat3("scale", model_scale.data(), 0.01);
 
     g_bcol.ClearObject(oid);
+
     static f32_t totald = 0;
-    
     totald += d * 1000;
     dt = totald;
 
@@ -53,7 +53,7 @@ struct bcol_model_t : fan_3d::model::fms_t{
     std::vector<fan::mat4> fk_transformations = bone_transforms;
     fk_interpolate_animations(fk_transformations, *root_bone, m_transform);
 
-    mouse_modify_joint();
+    mouse_modify_joint(dt);
 
     fan::mat4 model_transform{1};
     model_transform = model_transform.translate(model_position);
@@ -71,7 +71,7 @@ struct bcol_model_t : fan_3d::model::fms_t{
           uint32_t vertex_index = meshes[i].indices[j + pi];
           fan::vec4 v(model_transform * fan::vec4(calculated_meshes[i].vertices[vertex_index].position, 1.0));
 
-          sp.p[pi] = *(fan::vec3*)&v;
+          sp.p[pi] = *(BCOL_t::_vf *)&v;
           sp.u.uv[pi] = calculated_meshes[i].vertices[vertex_index].uv;
         }
         g_bcol.NewShape_DPF(oid, &sp);

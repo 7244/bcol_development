@@ -109,12 +109,7 @@ endif()
 if(WIN32)
     message(FATAL_ERROR "Windows back-end undone.")
 else()
-	file(GLOB FAN_LIBS "/usr/local/lib/fan/*.a")
-	if(DEFINED BUILD_FAN)
-		list(FILTER FAN_LIBS EXCLUDE REGEX ".*fan.a$")
-	endif()
-    # On Linux, use the system libraries
-    target_link_libraries(${OUTPUT} ${FAN_LIBS} embree4 webp Xrandr glfw uv assimp)
+    target_link_libraries(${OUTPUT} /usr/local/lib/libfan.so embree4 webp Xrandr glfw uv libimgui.a assimp box2d)
 endif()
 
 link_directories(${CMAKE_SOURCE_DIR}/lib)
