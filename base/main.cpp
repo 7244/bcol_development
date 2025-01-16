@@ -792,6 +792,7 @@ int main() {
   auto found = bcol_model.animation_list.find("Idle");
   if (found != bcol_model.animation_list.end()) {
     found->second.weight = 1.0;
+    bcol_model.active_anim =  found->second.name;
   }
 
   {
@@ -942,6 +943,7 @@ int main() {
       ii.data = (uint8_t*)FrameData;
       ii.size.x = RenderSize.x;
       ii.size.y = RenderSize.y;
+      ii.channels = 3;
       if (image.iic() == false) {
         loco.image_unload(image);
         image.sic();

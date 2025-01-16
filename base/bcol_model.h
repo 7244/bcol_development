@@ -20,7 +20,7 @@ struct bcol_model_t : fan_3d::model::fms_t{
       }
       model_material.push_back(material);
     }
-
+    calculated_meshes = meshes;
   }
   void open() {
     BCOL_t::ObjectProperties_t p;
@@ -50,8 +50,7 @@ struct bcol_model_t : fan_3d::model::fms_t{
     dt = totald;
 
     fk_calculate_poses();
-    std::vector<fan::mat4> fk_transformations = bone_transforms;
-    fk_interpolate_animations(fk_transformations, *root_bone, m_transform);
+    std::vector<fan::mat4> fk_transformations = fk_calculate_transformations();
 
     mouse_modify_joint(dt);
 
