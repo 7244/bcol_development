@@ -774,8 +774,8 @@ int main() {
     loco_t::image_t image;
     image = loco.image_create();
     loco_t::image_load_properties_t lp;
-    lp.format = fan::opengl::GL_RGB;
-    lp.internal_format = fan::opengl::GL_RGB;
+    lp.format = GL_RGB;
+    lp.internal_format = GL_RGB;
 
     loco_t::sprite_t::properties_t p;
     p.size = fan::vec2(1, 1);

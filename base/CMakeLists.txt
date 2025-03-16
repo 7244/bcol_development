@@ -1,117 +1,185 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.20)
+project(fan)
 
-project(fan_project)
+set(CMAKE_VERBOSE_MAKEFILE ON)
+set(CMAKE_COLOR_DIAGNOSTICS ON)
 
-# Set the C++ standard
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Add the include directories
-include_directories(./)
+set(CMAKE_C_USE_RESPONSE_FILE_FOR_OBJECTS 1)
+set(CMAKE_CXX_USE_RESPONSE_FILE_FOR_OBJECTS 1)
+set(CMAKE_C_RESPONSE_FILE_LINK_FLAG "@")
+set(CMAKE_CXX_RESPONSE_FILE_LINK_FLAG "@")
+set(CMAKE_NINJA_FORCE_RESPONSE_FILE 1 CACHE INTERNAL "")
+
+set(LOCO_BOX2D ON)
+set(LOCO_IMGUI ON)
+set(LOCO_JSON ON)
+set(LOCO_ASSIMP ON)
+set(LOCO_OPENGL ON)
+set(LOCO_VULKAN ON)
+set(BUILD_MAIN ON)
+
+set(DCMAKE_CXX_FLAGS DEBUG=1)
+set(DCMAKE_BUILD_TYPE Debug)
+set(CMAKE_CXX_COMPILER "/usr/bin/clang++")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -MD -MT -L/usr/local/lib/ -Wall -Wextra -fpermissive -ferror-limit=4 -stdlib=libstdc++ -fsized-deallocation -fPIC")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-shift-op-parentheses -Wno-unused-variable -Wno-int-to-void-pointer-cast")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-parameter -Wno-unused-function -Wno-bitwise-op-parentheses")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-invalid-offsetof -Wno-missing-field-initializers -Wno-sign-compare")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-but-set-parameter -Wno-unused-value")
+set(CMAKE_CXX_FLAGS_DEBUG "-gdwarf-4")
+set(CMAKE_CXX_FLAGS_RELEASE "-O3")
+
+set(CMAKE_EXE_LINKER_FLAGS "-fuse-ld=gold")
+set(CMAKE_SHARED_LINKER_FLAGS "-fuse-ld=gold")
+set(CMAKE_MODULE_LINKER_FLAGS "-fuse-ld=gold")
+
+set(ROOT_PATH /home/arch/k/git/fan/fan/)
+set(OUTPUT_PATH /home/arch/k/git/fan/lib/fan/)
+file(MAKE_DIRECTORY ${OUTPUT_PATH})
+
+include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
 find_package(PkgConfig REQUIRED)
-
-# Check for GTK
 pkg_check_modules(GTK3 REQUIRED gtk+-3.0)
 
-# Add GTK flags to the compiler flags
-string(APPEND CMAKE_CXX_FLAGS " ${GTK3_CFLAGS_OTHER}")
+set(BUILD_SHARED_LIBS ON)
 
-# Add the GTK include directories
-include_directories(${GTK3_INCLUDE_DIRS})
-
-# Link the GTK libraries
-link_libraries(${GTK3_LIBRARIES})
-
-set(CMAKE_CXX_COMPILER "clang++")
-
-# Set the source files and output
-if(NOT DEFINED MAIN)
-	set(MAIN main.cpp)
-endif()
-set(OUTPUT a.exe)
-
-# Set the paths
-# Function to check if a directory exists
-function(check_directory_exists DIR)
-    if (EXISTS "${DIR}")
-        set(EXISTS TRUE PARENT_SCOPE)
-    else()
-        set(EXISTS FALSE PARENT_SCOPE)
+function(apply_loco_definitions target)
+    if(LOCO_IMGUI)
+        target_compile_definitions(${target} PRIVATE -Dloco_imgui)
     endif()
+    if(LOCO_JSON)
+        target_compile_definitions(${target} PRIVATE -Dloco_json)
+    endif()
+    if(LOCO_ASSIMP)
+        target_compile_definitions(${target} PRIVATE -Dloco_assimp)
+    endif()
+    if(LOCO_BOX2D)
+        target_compile_definitions(${target} PRIVATE -Dloco_box2d)
+    endif()
+		if (LOCO_VULKAN)
+			target_compile_definitions(${target} PRIVATE -Dloco_vulkan)
+		endif()
+    target_compile_definitions(${target} PRIVATE
+        IMGUI_IMPL_OPENGL_LOADER_CUSTOM
+        IMGUI_DEFINE_MATH_OPERATORS
+    )
 endfunction()
 
-# Check for the fan directory in various locations
-if(NOT DEFINED ROOT_PATH)
-    set(SEARCH_PATHS "/usr/include/fan/" "/usr/local/include/fan/" "${CMAKE_SOURCE_DIR}/fan/")
+add_library(fmt STATIC ${ROOT_PATH}/fmt.cpp)
+set_target_properties(fmt PROPERTIES
+    ARCHIVE_OUTPUT_DIRECTORY ${OUTPUT_PATH}
+    OUTPUT_NAME "fmt"
+)
+
+if(LOCO_IMGUI)
+    file(GLOB IMGUI_SOURCES ${ROOT_PATH}/imgui/*.cpp)
+    add_library(imgui STATIC ${IMGUI_SOURCES})
+    target_include_directories(imgui PRIVATE ${ROOT_PATH}/imgui)
+    target_compile_definitions(imgui PRIVATE 
+        IMGUI_IMPL_OPENGL_LOADER_CUSTOM
+        IMGUI_DEFINE_MATH_OPERATORS
+        IMGUI_DISABLE_SSE
+        STBI_NO_SIMD
+    )
+    apply_loco_definitions(imgui)
+    set_target_properties(imgui PROPERTIES
+        ARCHIVE_OUTPUT_DIRECTORY ${OUTPUT_PATH}
+        OUTPUT_NAME "imgui"
+    )
+endif()
+
+# Native File Dialog library
+if(UNIX)
+    file(GLOB NFD_SOURCES ${ROOT_PATH}/nativefiledialog/*.c)
+    list(FILTER NFD_SOURCES EXCLUDE REGEX ".*nfd_zenity\\.c$")
+    list(FILTER NFD_SOURCES EXCLUDE REGEX ".*nfd_win\\.cpp$")
+else()
+    file(GLOB NFD_SOURCES ${ROOT_PATH}/nativefiledialog/*.c ${ROOT_PATH}/nativefiledialog/*.cpp)
+    list(FILTER NFD_SOURCES EXCLUDE REGEX ".*nfd_zenity\\.c$")
+    list(FILTER NFD_SOURCES EXCLUDE REGEX ".*nfd_gtk\\.c$")
+endif()
+
+add_library(nfd STATIC ${NFD_SOURCES})
+if(UNIX)
+    target_include_directories(nfd PRIVATE ${GTK3_INCLUDE_DIRS})
+endif()
+set_target_properties(nfd PROPERTIES
+    ARCHIVE_OUTPUT_DIRECTORY ${OUTPUT_PATH}
+    OUTPUT_NAME "nfd"
+)
+
+file(GLOB_RECURSE FAN_SOURCES 
+    ${ROOT_PATH}/*.cpp
+    ${ROOT_PATH}/*/*.cpp
+    ${ROOT_PATH}/*/*/*.cpp
+    ${ROOT_PATH}/*/*/*/*.cpp
+)
+
+list(FILTER FAN_SOURCES EXCLUDE REGEX ".*imgui/.*")
+list(FILTER FAN_SOURCES EXCLUDE REGEX ".*nativefiledialog/.*")
+if(NOT LOCO_BOX2D)
+    list(FILTER FAN_SOURCES EXCLUDE REGEX ".*physics_shapes\\.cpp$")
+    list(FILTER FAN_SOURCES EXCLUDE REGEX ".*b2_integration\\.cpp$")
+endif()
+
+# compile all fan sources into an object library
+add_library(fan_obj OBJECT ${FAN_SOURCES})
+apply_loco_definitions(fan_obj)
+
+# link the object library into the shared library
+add_library(fan SHARED $<TARGET_OBJECTS:fan_obj>)
+apply_loco_definitions(fan)
+set_target_properties(fan PROPERTIES
+    LIBRARY_OUTPUT_DIRECTORY ${OUTPUT_PATH}
+    OUTPUT_NAME "fan"
+)
+
+if(BUILD_MAIN)
+    if(NOT DEFINED MAIN)
+        set(MAIN main.cpp)
+    endif()
     
-    set(DIR_FOUND FALSE)
-    foreach(PATH ${SEARCH_PATHS})
-        check_directory_exists(${PATH})
-        if(EXISTS)
-            set(ROOT_PATH ${PATH})
-            set(DIR_FOUND TRUE)
-            break()
+    add_executable(a.exe ${MAIN} $<TARGET_OBJECTS:fan_obj>)
+    apply_loco_definitions(a.exe)
+    
+    if(UNIX)
+        target_link_libraries(a.exe PUBLIC
+            embree4
+            stdc++exp
+            fan
+            fmt
+            nfd
+            webp
+            glfw
+            X11
+            opus
+            pulse-simple
+            uv
+            GL
+            GLEW
+            ${GTK3_LIBRARIES}
+        )
+				if (LOCO_BOX2D MATCHES ON)
+					target_link_libraries(a.exe PUBLIC box2d)
+				endif()
+
+        if(LOCO_IMGUI MATCHES ON)
+            target_link_libraries(a.exe PUBLIC imgui)
         endif()
-    endforeach()
-    
-    if(NOT DIR_FOUND)
-        message(FATAL_ERROR "fan directory not found in any of the specified locations.")
+        if(LOCO_ASSIMP MATCHES ON)
+            target_link_libraries(a.exe PUBLIC assimp)
+        endif()
+				if(LOCO_VULKAN MATCHES ON)
+            target_link_libraries(a.exe PUBLIC vulkan)
+						find_package(Vulkan REQUIRED)
+						find_library(SHADERC_LIB shaderc_shared PATHS /usr/local/lib)
+						target_link_libraries(a.exe PUBLIC Vulkan::Vulkan ${SHADERC_LIB})
+        endif()
+    else()
+        message(WARNING "Windows backend not implemented")
     endif()
 endif()
-
-set(ENABLE_IMGUI ON)
-
-string(APPEND CMAKE_CXX_FLAGS " -ferror-limit=4")
-string(APPEND CMAKE_CXX_FLAGS " -Wall -Wextra -Werror")
-string(APPEND CMAKE_CXX_FLAGS " -Wno-bitwise-op-parentheses -Wno-missing-field-initializers -Wno-invalid-offsetof -Wno-unused-parameter -Wno-unused-variable")
-
-set(DEBUG_FLAGS "-g")
-set(RELEASE_FLAGS "-s -O3 -march=native -mtune=native -fdata-sections -ffunction-sections -march=native -Wl,--gc-sections")
-
-set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fuse-ld=gold")
-set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -fuse-ld=gold")
-
-string(APPEND CMAKE_CXX_FLAGS " -Dloco_assimp")
-
-if(ENABLE_IMGUI)
-    string(APPEND CMAKE_CXX_FLAGS " -Dloco_imgui -DIMGUI_IMPL_OPENGL_LOADER_CUSTOM -DIMGUI_DEFINE_MATH_OPERATORS")
-endif()
-
-string(APPEND CMAKE_CXX_FLAGS " -Dloco_box2d")
-
-if(DEFINED BUILD_FAN)
-	file(GLOB_RECURSE SOURCES "${ROOT_PATH}/*.cpp" "${ROOT_PATH}/*.c")
-	# Separate the ImGui sources
-	file(GLOB_RECURSE IMGUI_SOURCES "${ROOT_PATH}/imgui/*.cpp" "${ROOT_PATH}/imgui/*.c")
-
-	# Separate the nativefiledialog sources
-	file(GLOB_RECURSE NFD_SOURCES "${ROOT_PATH}/nativefiledialog/*.cpp" "${ROOT_PATH}/nativefiledialog/*.c")
-
-	# Separate the fmt sources
-	set(FMT_SOURCES "${ROOT_PATH}/fmt.h" "${ROOT_PATH}/fmt.cpp")
-
-	# Remove the ImGui, nativefiledialog and fmt sources from the SOURCES variable
-	list(REMOVE_ITEM SOURCES ${IMGUI_SOURCES} ${NFD_SOURCES} ${FMT_SOURCES})
-
-	list(FILTER NFD_SOURCES EXCLUDE REGEX "nfd_zenity.c")
-	list(REMOVE_ITEM SOURCES "nfd_zenity.c")
-
-	list(FILTER SOURCES EXCLUDE REGEX "${ROOT_PATH}/fmt.cpp")
-	
-	add_library(fan OBJECT ${SOURCES})
-	add_executable(${OUTPUT} ${MAIN} $<TARGET_OBJECTS:fan>)
-endif()
-
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ../)
-
-if(NOT DEFINED BUILD_FAN)
-	add_executable(${OUTPUT} ${MAIN})
-endif()
-
-if(WIN32)
-    message(FATAL_ERROR "Windows back-end undone.")
-else()
-    target_link_libraries(${OUTPUT} /usr/local/lib/libfan.so embree4 webp Xrandr glfw uv libimgui.a assimp box2d)
-endif()
-
-link_directories(${CMAKE_SOURCE_DIR}/lib)
