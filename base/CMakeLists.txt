@@ -77,6 +77,8 @@ if(ENABLE_IMGUI)
     string(APPEND CMAKE_CXX_FLAGS " -Dloco_imgui -DIMGUI_IMPL_OPENGL_LOADER_CUSTOM -DIMGUI_DEFINE_MATH_OPERATORS")
 endif()
 
+string(APPEND CMAKE_CXX_FLAGS " -Dloco_box2d")
+
 if(DEFINED BUILD_FAN)
 	file(GLOB_RECURSE SOURCES "${ROOT_PATH}/*.cpp" "${ROOT_PATH}/*.c")
 	# Separate the ImGui sources

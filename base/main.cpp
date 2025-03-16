@@ -448,11 +448,12 @@ BCOL_t::ObjectID_t focused_oid;
     uint32_t y1;
   };
 
-  #define TRT_BME_set_Prefix fastmut
-  #define TRT_BME_set_Language 1
-  #define TRT_BME_set_MutexType 1
-  #define TRT_BME_set_LockValue 1
-  #include <WITCH/TRT/BME/BME.h>
+  #define BME_set_Prefix fastmut
+  #define BME_set_Language 1
+  #define BME_set_Sleep 0
+  #define BME_set_NoLibrary 1
+  #define BME_set_LockValue 1
+  #include <BME/BME.h>
 
   struct {
     RayIterateIndexes_t vec[
@@ -645,11 +646,11 @@ void IterateRays(uint32_t x0, uint32_t x1, uint32_t y0, uint32_t y1, uint64_t* R
 
   struct tp_pack_t {
     #if set_Multithread_UseCond == 1
-      #define TRT_BME_set_Prefix Cond
-      #define TRT_BME_set_Language 1
-      #define TRT_BME_set_AreWeInsideStruct 1
-      #define TRT_BME_set_Conditional
-      #include <WITCH/TRT/BME/BME.h>
+      #define BME_set_Prefix Cond
+      #define BME_set_Language 1
+      #define BME_set_AreWeInsideStruct 1
+      #define BME_set_Conditional 1
+      #include <BME/BME.h>
       Cond_t cond;
       bool ping = 0;
     #endif
