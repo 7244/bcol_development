@@ -835,9 +835,7 @@ int main() {
     #endif
 
     #if set_DisplayWindow == 1
-      if (!image.iic()) {
-        loco.image_unload(image);
-      }
+      loco.image_unload(image);
     #endif
 
     #if set_VisualDebug == 1
@@ -945,10 +943,6 @@ int main() {
       ii.size.x = RenderSize.x;
       ii.size.y = RenderSize.y;
       ii.channels = 3;
-      if (image.iic() == false) {
-        loco.image_unload(image);
-        image.sic();
-      }
       image = loco.image_load(ii, lp);
     #endif
     #if set_DisplayWindow == 1
