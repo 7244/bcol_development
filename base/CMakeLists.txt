@@ -21,8 +21,6 @@ set(LOCO_OPENGL ON)
 set(LOCO_VULKAN ON)
 set(BUILD_MAIN ON)
 
-set(DCMAKE_CXX_FLAGS DEBUG=1)
-set(DCMAKE_BUILD_TYPE Debug)
 set(CMAKE_CXX_COMPILER "/usr/bin/clang++")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -MD -MT -L/usr/local/lib/ -Wall -Wextra -fpermissive -ferror-limit=4 -stdlib=libstdc++ -fsized-deallocation -fPIC")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-shift-op-parentheses -Wno-unused-variable -Wno-int-to-void-pointer-cast")
