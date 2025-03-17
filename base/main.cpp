@@ -835,7 +835,7 @@ int main() {
     #endif
 
     #if set_DisplayWindow == 1
-      loco.image_unload(image);
+     // loco.image_unload(image);
     #endif
 
     #if set_VisualDebug == 1
@@ -943,7 +943,7 @@ int main() {
       ii.size.x = RenderSize.x;
       ii.size.y = RenderSize.y;
       ii.channels = 3;
-      image = loco.image_load(ii, lp);
+      loco.image_reload(image , ii, lp);
     #endif
     #if set_DisplayWindow == 1
       if(gloco->window.key_pressed(fan::key_left_alt)){
