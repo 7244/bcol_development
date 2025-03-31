@@ -12,7 +12,7 @@
 #endif
 
 #ifndef set_VisualDebug
-  #define set_VisualDebug 1
+  #define set_VisualDebug 0
 #endif
 #ifndef set_HaveGrid
   #define set_HaveGrid 0
@@ -24,7 +24,7 @@
   #define set_stdout_data 0
 #endif
 #ifndef set_RenderFrameCount
-  #define set_RenderFrameCount (100000)
+  #define set_RenderFrameCount (uint64_t)-1
 #endif
 #ifndef set_RenderTick
   #define set_RenderTick 0.04
@@ -716,42 +716,6 @@ int main() {
       };
   }
 
-  //bcol_model.fms.m_transform = bcol_model.fms.m_transform.scale(1);
-
-  //bcol_model.fms.m_transform = bcol_model.fms.m_transform.rotate(fan::math::radians(180.f), fan::vec3(0, 1, 0));
-  //
-  {
-    // auto anid = fms.create_an("an_name", weight, duration);
-    //auto animation_node_id = fms.fk_set_rot(anid, "Left_leg", 0.001/* time in seconds */,
-    //  fan::vec3(1, 0, 0), 0
-    //);
-    //auto animation_node_id3 = fms.fk_set_rot(anid, "Left_leg", 1/* time in seconds */,
-    //  fan::vec3(1, 1, 0), fan::math::pi
-    //);
-
-    //auto anid = bcol_model.fms.create_an("an_name", 0.5);
-    ////auto anid2 = bcol_model.fms.create_an("an_name2", 0.5);
-
-    //auto animation_node_id1 = bcol_model.fms.fk_set_rot(anid, "Armature_Chest", 0.001/* time in seconds */,
-    //  fan::vec3(1, 0, 0), 0
-    //);
-    //auto animation_node_id = bcol_model.fms.fk_set_rot(anid, "Armature_Chest", 0.3/* time in seconds */,
-    //  fan::vec3(1, 0, 0), fan::math::pi / 2
-    //);
-
-    //auto animation_node_id3 = bcol_model.fms.fk_set_rot(anid, "Armature_Chest", 0.6/* time in seconds */,
-    //  fan::vec3(1, 0, 0), -fan::math::pi / 3
-    //);
-
-    //auto animation_node_id2 = bcol_model.fms.fk_set_rot(anid, "Armature_Upper_Leg_L", 0.6/* time in seconds */,
-    //  fan::vec3(1, 0, 0), -fan::math::pi
-    //);
-    //auto animation_node_id2 = bcol_model.fms.fk_set_rot(anid, 0.4/* time in seconds */, "Armature_Lower_Arm_R", fan::vec3(0, 180, 0));
-
-    //auto animation_node_id3 = bcol_model.fms.fk_set_rot(anid2, 0.5/* time in seconds */, "Armature_Lower_Leg_L", fan::vec3(0, 180, 0));
-    //auto animation_node_id4 = bcol_model.fms.fk_set_rot(anid2, 0.7/* time in seconds */, "Armature_Lower_Leg_L", fan::vec3(0, 180, 0));
-  }
-
   uint64_t FrameCount = 0;
 
   FrameData = (uint8_t*)malloc(RenderSize.x * RenderSize.y * 3);
@@ -788,7 +752,7 @@ int main() {
   #endif
 
   // initialize bcol mode after loco
-  bcol_model_t bcol_model("models/player.gltf");
+  bcol_model_t bcol_model("models/final_provence.fbx");
   bcol_model.open();
   auto found = bcol_model.animation_list.find("Idle");
   if (found != bcol_model.animation_list.end()) {
@@ -815,7 +779,6 @@ int main() {
   }
 
   uint64_t RayCount = 0;
-  uint64_t frame = 0;
 
   #if set_DisplayWindow == 1
     loco.loop([&]
@@ -823,20 +786,9 @@ int main() {
     while (1)
   #endif
   {
-      if (frame == 1) {
-        loco.console.commands.call("set_target_fps 0");
-        
-      }
-      frame++;
-    #if set_DisplayWindow == 0
-      if (FrameCount >= set_RenderFrameCount) {
-        return 0;
-      }
-    #endif
-
-    #if set_DisplayWindow == 1
-     // loco.image_unload(image);
-    #endif
+    if (FrameCount == set_RenderFrameCount) {
+      return 0;
+    }
 
     #if set_VisualDebug == 1
       for (uintptr_t i = 0; i < DebugBallList.size(); i++) {
@@ -850,7 +802,6 @@ int main() {
     g_bcol.Step(0.01);
     g_bcol.BakeCurrentForVisualSolve();
 
-    f64_t t0 = T_nowf();
     #if set_Multithread == 1
       #if set_Multithread_UseCond == 1
         while (rii_pack.mut.Lock()) {
@@ -930,9 +881,6 @@ int main() {
       }
     #endif
 
-    f64_t t1 = T_nowf();
-    //fprint("t is", t1 - t0);
-
     #if set_stdout_data == 1
       print("%.*s", (uintptr_t)RenderSize.x * RenderSize.y * 3, FrameData);
     #endif
@@ -955,15 +903,6 @@ int main() {
 
       view = fan::math::look_at_left<fan::mat4, fan::vec3>(0, camera.m_front, camera.m_up);
       view_projection = projection * view;
-
-      //fan::ray3_t ray = gloco->convert_mouse_to_ray(camera.position, projection, view);
-      //bcol_model.fms.iterate_joints(bcol_model.fms.parsed_model.model_data.skeleton, [&](fan_3d::animation::joint_t& joint){
-      //  fan::vec3 position = joint.global_transform.get_translation();
-      //  fan::vec3 size = 1;
-      //  if (gloco->is_ray_intersecting_cube(ray, position, size)) {
-      //    //fan::print("a");
-      //  }
-      //});
 
       total_delta += loco.delta_time;
     #else
