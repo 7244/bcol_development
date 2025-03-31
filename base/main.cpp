@@ -7,6 +7,12 @@
 #ifndef RenderSizeDivide
   #define RenderSizeDivide 16
 #endif
+#if RenderSizeX % RenderSizeDivide
+  #error ?
+#endif
+#if RenderSizeY % RenderSizeDivide
+  #error ?
+#endif
 #ifndef set_PrintStats
   #define set_PrintStats 0
 #endif
@@ -438,32 +444,6 @@ void ProcessSingleRay(uint8_t* Pixels, BCOL_t::_f RayPower, BCOL_t::_vf pos, BCO
 
 uint8_t* FrameData = 0;
 f64_t total_delta = 0;
-BCOL_t::ObjectID_t focused_oid;
-
-#if set_Multithread == 1
-  struct RayIterateIndexes_t {
-    uint32_t x0;
-    uint32_t x1;
-    uint32_t y0;
-    uint32_t y1;
-  };
-
-  #define BME_set_Prefix fastmut
-  #define BME_set_Language 1
-  #define BME_set_Sleep 0
-  #define BME_set_NoLibrary 1
-  #define BME_set_LockValue 1
-  #include <BME/BME.h>
-
-  struct {
-    RayIterateIndexes_t vec[
-      (RenderSizeX / RenderSizeDivide + !!(RenderSizeX % RenderSizeDivide)) *
-        (RenderSizeY / RenderSizeDivide + !!(RenderSizeY % RenderSizeDivide))
-    ];
-    uint32_t vec_size = 0;
-    fastmut_t mut;
-  }rii_pack;
-#endif
 
 void IterateRaysSingle(uint32_t x0, uint32_t x1, uint32_t y0, uint32_t y1, uint64_t* RayCount) {
   for (uint32_t y = y0; y < y1; y++) {
@@ -580,68 +560,69 @@ void IterateRays(uint32_t x0, uint32_t x1, uint32_t y0, uint32_t y1, uint64_t* R
   #endif
 }
 
-#if set_Multithread == 1
-  void GetAndIterateRays(bool* Processing, uint64_t* lock_fail_count, uint64_t* RayCount) {
+#if set_Multithread
+  struct {
+    uint32_t current;
+    uint32_t possible =
+      (RenderSizeX / RenderSizeDivide) *
+      (RenderSizeY / RenderSizeDivide)
+    ; // TODO possible accessed non atomic everywhere
+  }rayiterate_data;
+
+  struct RayIterateIndexes_t{
+    uint32_t x0;
+    uint32_t x1;
+    uint32_t y0;
+    uint32_t y1;
+
+    bool make(uint32_t current){
+      if(current >= rayiterate_data.possible){
+        return true;
+      }
+
+      x0 = current % (RenderSizeX / RenderSizeDivide) * RenderSizeDivide;
+      x1 = x0 + RenderSizeDivide;
+      y0 = current / (RenderSizeX / RenderSizeDivide) * RenderSizeDivide;
+      y1 = y0 + RenderSizeDivide;
+
+      return false;
+    }
+  };
+
+  void GetAndIterateRays(bool* Processing, uint64_t* RayCount) {
     while (1) {
+      uint32_t current = __atomic_fetch_add(&rayiterate_data.current, 1, __ATOMIC_SEQ_CST);
+
       RayIterateIndexes_t rii;
+
       #if set_Multithread_UseCond == 1
-        while (rii_pack.mut.Lock()) {
-          (*lock_fail_count)++;
-        }
-        if (rii_pack.vec_size == 0) {
-          rii_pack.mut.Unlock();
+        if(rii.make(current)){
           return;
         }
-        *Processing = 1;
-        rii = rii_pack.vec[--rii_pack.vec_size];
-        rii_pack.mut.Unlock();
       #else
-        while (1) {
-          uint32_t size = __atomic_load_n(&rii_pack.vec_size, __ATOMIC_RELAXED);
-          if (size == 0) {
-            _mm_pause();
-            continue;
+        while(rii.make(current)){
+          while(__atomic_load_n(&rayiterate_data.current, __ATOMIC_RELAXED) >= rayiterate_data.possible){
+            // TODO relax
           }
-
-          while (rii_pack.mut.Lock()) {
-            (*lock_fail_count)++;
-          }
-
-          if (rii_pack.vec_size == 0) {
-            rii_pack.mut.Unlock();
-            _mm_pause();
-            continue;
-          }
-
-          *Processing = 1;
-          rii = rii_pack.vec[--rii_pack.vec_size];
-          rii_pack.mut.Unlock();
-          break;
+          current = __atomic_fetch_add(&rayiterate_data.current, 1, __ATOMIC_SEQ_CST);
         }
       #endif
+
+      *Processing = 1;
       IterateRays(rii.x0, rii.x1, rii.y0, rii.y1, RayCount);
       *Processing = 0;
     }
   }
 
-  void GetAndIterateRays_Main(uint64_t* lock_fail_count, uint64_t* RayCount) {
-    #if set_Multithread_UseCond == 1
-    bool Processing = 0;
-    GetAndIterateRays(&Processing, lock_fail_count, RayCount);
-    #else
-    while (1) {
-      while (rii_pack.mut.Lock()) {
-        (*lock_fail_count)++;
-      }
-      if (rii_pack.vec_size == 0) {
-        rii_pack.mut.Unlock();
+  void GetAndIterateRays_Main(uint64_t* RayCount) {
+    while(1){
+      uint32_t current = __atomic_fetch_add(&rayiterate_data.current, 1, __ATOMIC_SEQ_CST);
+      RayIterateIndexes_t rii;
+      if(rii.make(current)){
         return;
       }
-      auto rii = rii_pack.vec[--rii_pack.vec_size];
-      rii_pack.mut.Unlock();
       IterateRays(rii.x0, rii.x1, rii.y0, rii.y1, RayCount);
     }
-    #endif
   }
 
   struct tp_pack_t {
@@ -655,7 +636,6 @@ void IterateRays(uint32_t x0, uint32_t x1, uint32_t y0, uint32_t y1, uint64_t* R
       bool ping = 0;
     #endif
     bool Processing = 0;
-    uint64_t rii_lock_fail_count = 0;
     uint64_t RayCount = 0;
   };
 
@@ -671,11 +651,9 @@ void IterateRays(uint32_t x0, uint32_t x1, uint32_t y0, uint32_t y1, uint64_t* R
         tp_pack->cond.Unlock();
       #endif
 
-      GetAndIterateRays(&tp_pack->Processing, &tp_pack->rii_lock_fail_count, &tp_pack->RayCount);
+      GetAndIterateRays(&tp_pack->Processing, &tp_pack->RayCount);
     }
   }
-
-  uint64_t Main_rii_lock_fail_count = 0;
   uint64_t sleep_wait_count = 0;
 #endif
 
@@ -727,7 +705,12 @@ int main() {
       fan::vec2(-1, 1)
     );
 
-    projection = fan::math::perspective<fan::mat4>(fan::math::radians(FOV), (f32_t)gloco->window.get_size().x / (f32_t)gloco->window.get_size().y, 0.1f, 1000.0f);
+    projection = fan::math::perspective<fan::mat4>(
+      fan::math::radians(FOV),
+      (f32_t)gloco->window.get_size().x / (f32_t)gloco->window.get_size().y,
+      0.1f,
+      1000.0f
+    );
 
     loco.window.add_mouse_motion([&](const auto& d) {
       if (ImGui::IsMouseDown(ImGuiMouseButton_Middle)) {
@@ -780,14 +763,19 @@ int main() {
 
   uint64_t RayCount = 0;
 
-  #if set_DisplayWindow == 1
+  #if set_DisplayWindow
     loco.loop([&]
   #else
     while (1)
   #endif
   {
     if (FrameCount == set_RenderFrameCount) {
-      return 0;
+      #if set_DisplayWindow
+        loco.window.close();
+        return;
+      #else
+        break;
+      #endif
     }
 
     #if set_VisualDebug == 1
@@ -803,38 +791,9 @@ int main() {
     g_bcol.BakeCurrentForVisualSolve();
 
     #if set_Multithread == 1
-      #if set_Multithread_UseCond == 1
-        while (rii_pack.mut.Lock()) {
-          Main_rii_lock_fail_count++;
-        }
-      #endif
-      for (uint32_t y = 0; y < RenderSize.y;) {
-        uint32_t lefty = RenderSizeY - y;
-        if (lefty > RenderSizeDivide) {
-          lefty = RenderSizeDivide;
-        }
-        #if set_Multithread_UseCond == 0
-        while (rii_pack.mut.Lock()) {
-          Main_rii_lock_fail_count++;
-        }
-        #endif
-        for (uint32_t x = 0; x < RenderSize.x;) {
-          uint32_t leftx = RenderSizeX - x;
-          if (leftx > RenderSizeDivide) {
-            leftx = RenderSizeDivide;
-          }
-          rii_pack.vec[rii_pack.vec_size++] = { .x0 = x, .x1 = x + leftx, .y0 = y, .y1 = y + lefty };
-          x += leftx;
-        }
-        #if set_Multithread_UseCond == 0
-        rii_pack.mut.Unlock();
-        #endif
-        y += lefty;
-      }
+      rayiterate_data.current = 0;
 
-      #if set_Multithread_UseCond == 1
-        rii_pack.mut.Unlock();
-      #endif
+      __atomic_exchange_n(&rayiterate_data.current, 0, __ATOMIC_SEQ_CST);
 
       #if set_Multithread_UseCond == 1
         for (uint32_t ti = 0; ti < thread_count - 1; ti++) {
@@ -845,27 +804,22 @@ int main() {
         }
       #endif
 
-      GetAndIterateRays_Main(&Main_rii_lock_fail_count, &MainRayCount);
+      GetAndIterateRays_Main(&MainRayCount);
     #else
       IterateRays(0, RenderSize.x, 0, RenderSize.y, &MainRayCount);
     #endif
 
     #if set_PrintStats == 1
-      #if set_Multithread == 0
-        fprint("frame", FrameCount);
-      #else
-        fprint("frame", FrameCount, "locks", Main_rii_lock_fail_count, sleep_wait_count);
-        for (uint32_t i = 0; i < thread_count - 1; i++) {
-          uint64_t rii_lock_fail_count = __atomic_load_n(&tp_pack[i].rii_lock_fail_count, __ATOMIC_RELAXED);
-          fprint("thread", i + 1, rii_lock_fail_count);
-        }
-      #endif
+      fprint("frame", FrameCount);
       fprint("total rays >=", RayCount);
+      #if set_Multithread
+        fprint("sleep wait count", sleep_wait_count);
+      #endif
     #endif
 
     RayCount = MainRayCount;
 
-    #if set_Multithread == 1
+    #if set_Multithread
       for (uint32_t i = 0; i < thread_count - 1;) {
         RayCount += __atomic_load_n(&tp_pack[i].RayCount, __ATOMIC_RELAXED);
 
