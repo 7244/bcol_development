@@ -20,8 +20,8 @@ void _print(int fd, const char* format, ...){
   IO_vprint(&iofd, format, argv);
   va_end(argv);
 }
-#define printout(...) _print(STDOUT_FILENO, __VA_ARGS__)
-#define printerr(...) _print(STDERR_FILENO, __VA_ARGS__)
+#define printout(...) _print(IO_STDOUT_FILENO, __VA_ARGS__)
+#define printerr(...) _print(IO_STDERR_FILENO, __VA_ARGS__)
 
 constexpr f32_t GridBlockSize = 64;
 
@@ -63,7 +63,7 @@ void PreSolve_Grid_cb(
 
 int main(){
   {
-    int flags = fcntl(STDIN_FILENO, F_GETFL, 0);
+    int flags = fcntl(IO_STDIN_FILENO, F_GETFL, 0);
     if (flags == -1) {
       perror("fcntl(F_GETFL)");
       return -1;
@@ -71,7 +71,7 @@ int main(){
 
     flags |= O_NONBLOCK;
 
-    if (fcntl(STDIN_FILENO, F_SETFL, flags) == -1) {
+    if (fcntl(IO_STDIN_FILENO, F_SETFL, flags) == -1) {
       perror("fcntl(F_SETFL)");
       return -1;
     }
@@ -79,13 +79,13 @@ int main(){
   {
     struct termios term;
 
-    tcgetattr(STDIN_FILENO, &term);
+    tcgetattr(IO_STDIN_FILENO, &term);
 
     term.c_lflag &= ~(ICANON | ECHO | ISIG);
     term.c_iflag &= ~(IXON | ICRNL | INLCR);
     term.c_oflag &= ~OPOST;
 
-    tcsetattr(STDIN_FILENO, TCSANOW, &term);
+    tcsetattr(IO_STDIN_FILENO, TCSANOW, &term);
   }
 
   BCOL_t g_bcol;
@@ -135,7 +135,7 @@ int main(){
   while(1){
     {
       IO_fd_t iofd;
-      IO_fd_set(&iofd, STDIN_FILENO);
+      IO_fd_set(&iofd, IO_STDIN_FILENO);
       uint8_t data[0x1000];
       auto read_size = IO_read(&iofd, data, sizeof(data));
       if(read_size < 0){
@@ -215,16 +215,16 @@ int main(){
   {
     struct termios term;
 
-    tcgetattr(STDIN_FILENO, &term);
+    tcgetattr(IO_STDIN_FILENO, &term);
     term.c_lflag |= (ICANON | ECHO | ISIG);
     term.c_iflag |= (IXON | ICRNL | INLCR);
     term.c_oflag |= OPOST;
-    tcsetattr(STDIN_FILENO, TCSANOW, &term);
+    tcsetattr(IO_STDIN_FILENO, TCSANOW, &term);
   }
 
   {
     IO_fd_t iofd;
-    IO_fd_set(&iofd, STDOUT_FILENO);
+    IO_fd_set(&iofd, IO_STDOUT_FILENO);
     IO_close(&iofd);
   }
 
