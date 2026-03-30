@@ -5,6 +5,9 @@
   #define RenderSizeY 512
 #endif
 
+#include <cstring>
+#include <cmath>
+
 #include <WITCH/WITCH.h>
 #include <WITCH/IO/IO.h>
 #include <WITCH/IO/print.h>
@@ -25,8 +28,8 @@ void _print(int fd, const char* format, ...){
 
 constexpr f32_t GridBlockSize = 64;
 
-#include <fan/types/types.h>
-#include <fan/types/vector.h>
+import fan.math;
+import fan.types.vector;
 
 #define BCOL_set_prefix BCOL
 #define BCOL_set_SupportGrid 1
@@ -35,6 +38,7 @@ constexpr f32_t GridBlockSize = 64;
   ObjectData0->Velocity[0] += 0; \
   ObjectData0->Velocity[1] += 200 * delta;
 #include <BCOL/BCOL.h>
+
 
 bool IsGridSolid(sint32_t *p){
   if(p[0] == 0 && p[1] == 2){
